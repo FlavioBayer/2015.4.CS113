@@ -46,9 +46,11 @@ var gameScene = {
 	gravity: { x:0, y:0.3 },
 	mainCharacter: {
 		position: { x:10, y:150 },
+		size: { w:30, h:45 },
 		speed: { x:0, y:0 },
 		acceleration: { x:0, y:0 },
-		state: ""
+		state: "",
+		jumpAllowed: true,
 	},
 	platforms: [
 		{ x:0, y:230, w:200, h:330 },
@@ -85,95 +87,61 @@ var gameScene = {
 		}
 	],
 	processInput: function(gameContext, keyboard, mouse){
-		if(keyboard.getKeyDown("w")){//jump
-			this.mainCharacter.speed.y -= 5;
+		var jumpAcceleration = 5;
+		var runSpeed = 4;
+		if(keyboard.getKeyDown("w") && this.mainCharacter.jumpAllowed){//jump
+			this.mainCharacter.speed.y -= jumpAcceleration;
 		}
 		if(keyboard.getKeyDown("a")){//run left, start
-			this.mainCharacter.speed.x -= 5;
+			this.mainCharacter.speed.x -= runSpeed;
 		}
 		if(keyboard.getKeyUp("a")){//run left, start
-			this.mainCharacter.speed.x += 5;
+			this.mainCharacter.speed.x += runSpeed;
 		}
 		if(keyboard.getKeyDown("d")){//run right, start
-			this.mainCharacter.speed.x += 5;
+			this.mainCharacter.speed.x += runSpeed;
 		}
 		if(keyboard.getKeyUp("d")){//run right, end
-			this.mainCharacter.speed.x -= 5;
+			this.mainCharacter.speed.x -= runSpeed;
 		}
 	},
+	ptsa: [],
 	update: function(gameContext, deltaTime){
+		this.mainCharacter.jumpAllowed = false;
 		//update mainCharacter.speed: discrete integrate acceleration and gravity
 		this.mainCharacter.speed.x += this.mainCharacter.acceleration.x + this.gravity.x;
 		this.mainCharacter.speed.y += this.mainCharacter.acceleration.y + this.gravity.y;
-		if(this.mainCharacter.speed.y>5)this.mainCharacter.speed.y=5;
-		//update mainCharacter.position: discrete integrate speed
-		this.mainCharacter.position.x += Math.floor(this.mainCharacter.speed.x);
-		this.mainCharacter.position.y += Math.floor(this.mainCharacter.speed.y);
-		//Check for platform collision
-		var allCollisions = [];
-		for(var i=0; i<this.platforms.length; i++){
-			var mainCharBB = { x:this.mainCharacter.position.x, y:this.mainCharacter.position.y, w:120/4, h:183/4 };
-			var mainCharBP = Box2Polygon(mainCharBB);
-			//var mainCharacterPtBM = { x:mainCharBB.x+mainCharBB.w/2, h:mainCharBB.y+mainCharBB.h };
-			var collisions = checkPolygonPolygonIntersections(Box2Polygon(this.platforms[i]), mainCharBP);
-			var collisionMaxX=-Infinity, collisionMinX=+Infinity, collisionMaxY=-Infinity, collisionMinY=+Infinity;
-			var collisionBottom=0, collisionTop=0, collisionLeft=0, collisionRight=0, collisionBottomLeft=0, collisionBottomRight=0, collisionTopLeft=0, collisionTopRight=0;
-			//console.log(JSON.stringify(collisions), JSON.stringify(mainCharBB));
-			for(var j=0; j<collisions.length; j++){
-				collisionBottomLeft += Math.abs(collisions[j].y-(mainCharBB.y+mainCharBB.h))<1e-3 && Math.abs(collisions[j].x-(mainCharBB.x))<1e-3?1:0;
-				collisionBottomRight += Math.abs(collisions[j].y-(mainCharBB.y+mainCharBB.h))<1e-3 && Math.abs(collisions[j].x-(mainCharBB.x+mainCharBB.w))<1e-3?1:0;
-				collisionTopLeft += Math.abs(collisions[j].y-(mainCharBB.y))<1e-3 && Math.abs(collisions[j].x-(mainCharBB.x))<1e-3?1:0;
-				collisionTopRight += Math.abs(collisions[j].y-(mainCharBB.y))<1e-3 && Math.abs(collisions[j].x-(mainCharBB.x+mainCharBB.w))<1e-3?1:0;
-				collisionBottom += Math.abs(collisions[j].y-(mainCharBB.y+mainCharBB.h))<1e-3?1:0;
-				collisionTop += Math.abs(collisions[j].y-(mainCharBB.y))<1e-3?1:0;
-				collisionLeft += Math.abs(collisions[j].x-(mainCharBB.x))<1e-3?1:0;
-				collisionRight += Math.abs(collisions[j].x-(mainCharBB.x+mainCharBB.w))<1e-3?1:0;
-				collisionMaxX = Math.max(collisionMaxX, collisions[j].x);
-				collisionMinX = Math.min(collisionMinX, collisions[j].x);
-				collisionMaxY = Math.max(collisionMaxY, collisions[j].y);
-				collisionMinY = Math.min(collisionMinY, collisions[j].y);
-				allCollisions.push(collisions[j]);
-			}
-			collisionLeft -= collisionBottomLeft+collisionTopLeft;
-			collisionRight -= collisionBottomRight+collisionTopRight;
-			collisionTop -= collisionBottomLeft+collisionBottomRight;
-			collisionBottom -= collisionTopLeft+collisionTopRight;
-			
-			//if(this.mainCharacter.speed.x>0)console.log(collisionBottom, collisionTop, collisionLeft, collisionRight, collisionBottomLeft, collisionBottomRight, collisionTopLeft, collisionTopRight, JSON.stringify(this.mainCharacter.position), JSON.stringify(collisions));
-			if((collisionTop && collisionBottom) || (!!collisionLeft != !!collisionRight)){
-				if(collisionRight || (this.mainCharacter.speed.x>0 && collisionTop && collisionBottom)){//going right and right collision
-					console.log("c");
-					//this.mainCharacter.speed.x = 0;
-					this.mainCharacter.position.x = collisionMaxX-mainCharBB.w;	
-				}else if(collisionLeft || (this.mainCharacter.speed.x<0 && collisionTop && collisionBottom)){//going left and left collision
-					console.log("d");
-					//this.mainCharacter.speed.x = 0;	
-					this.mainCharacter.position.x = collisionMinX;			
-					if(this.mainCharacter.speed.y<0){//slide on the wall
-						//this.mainCharacter.speed.y -= this.gravity.y/2;
-					}
-				}
-				if(this.mainCharacter.speed.y<0){//slide on the wall
-					console.log("Subiu no nuro");
-					//this.mainCharacter.speed.y -= this.gravity.y/2;
-				}
-				j--;
-				continue;
-			}
-			
-			if((collisionLeft && collisionRight) || (!!collisionTop != !!collisionBottom)){
-				if(collisionBottom || (this.mainCharacter.speed.y>0 && collisionLeft && collisionRight)){//going down
-					console.log("a");
-					this.mainCharacter.speed.y = 0;
-					this.mainCharacter.position.y = collisionMinY-mainCharBB.h;
-				}else if(collisionTop || (this.mainCharacter.speed.y<0 && collisionLeft && collisionRight)){//going up
-					console.log("b");
-					this.mainCharacter.speed.y = 0;		
-					this.mainCharacter.position.y = collisionMaxX;
-				}
+		if(this.mainCharacter.speed.y>5)this.mainCharacter.speed.y=5;//limit falling speed
+		//get new position: discrete integrate speed
+		var newPosition = { x:this.mainCharacter.position.x+this.mainCharacter.speed.x, y:this.mainCharacter.position.y+this.mainCharacter.speed.y };
+		var oldPosition = { x:this.mainCharacter.position.x, y:this.mainCharacter.position.y };
+		//Check for platform collision and fix newPosition
+		for(var i=0; i<this.platforms.length; i++){//check for horizontal collision
+			var platform = this.platforms[i];
+			if(newPosition.y+this.mainCharacter.size.h<platform.y || platform.y+platform.h<newPosition.y)continue;//ignore platform if the mainCharacter is not inside the Y
+			if(this.mainCharacter.speed.x>0 && oldPosition.x+this.mainCharacter.size.w<=platform.x && newPosition.x+this.mainCharacter.size.w>platform.x){//going right, check for collision on left side
+				newPosition.x = platform.x-this.mainCharacter.size.w;//limit the move
+				this.mainCharacter.speed.y -= this.gravity.y/2;//slide/climb the wall, reduce the gravity by half
+			}else if(this.mainCharacter.speed.x<0 && oldPosition.x>=platform.x+platform.w && newPosition.x<platform.x+platform.w){//going left, check for collision on right side
+				newPosition.x = platform.x+platform.w;//limit the move
+				this.mainCharacter.speed.y -= this.gravity.y/2;//slide/climb the wall, reduce the gravity by half
 			}
 		}
-		//console.log("-");
+		for(var i=0; i<this.platforms.length; i++){//check for vertical collision
+			var platform = this.platforms[i];
+			if(newPosition.x+this.mainCharacter.size.w<platform.x || platform.x+platform.w<newPosition.x)continue;//ignore platform if the mainCharacter is not inside the X
+			if(this.mainCharacter.speed.y>0 && oldPosition.y+this.mainCharacter.size.h<=platform.y && newPosition.y+this.mainCharacter.size.h>platform.y){//going down, check for collision on top side
+				newPosition.y = platform.y-this.mainCharacter.size.h;//limit the move
+				this.mainCharacter.speed.y = 0;
+				this.mainCharacter.jumpAllowed = true;//is tanding on something: jump allowed
+			}else if(this.mainCharacter.speed.y<0 && oldPosition.y>=platform.y+platform.h && newPosition.y<platform.y+platform.h){//going up, check for collision on bottom side
+				newPosition.y = platform.y+platform.h;//limit the move
+				this.mainCharacter.speed.y = 0;
+			}
+		}
+		//update mainCharacter.position
+		this.mainCharacter.position.x = newPosition.x;
+		this.mainCharacter.position.y = newPosition.y;
 	},
 	render: function(gameContext){
 		var backgroundImg = gameContext.images.background1c;
@@ -187,29 +155,36 @@ var gameScene = {
 		canvas.translate(200, 720/2);
 		canvas.scale(1.5, 1.5);
 		canvas.translate(-this.mainCharacter.position.x, -this.mainCharacter.position.y);
-		//////////////////////////////////////////////
-		canvas.strokeStyle = "#F00";
+		//Draw Platforms
+		/*canvas.strokeStyle = "#F00";
 		for(var i=0; i<this.platforms.length; i++){
 			canvas.fillRect(this.platforms[i].x, this.platforms[i].y, this.platforms[i].w, this.platforms[i].h);
 			canvas.beginPath();
 			canvas.rect(this.platforms[i].x, this.platforms[i].y, this.platforms[i].w, this.platforms[i].h);
 			canvas.closePath();
 			canvas.stroke();
-		};
-		//////////////////////
-		//draw platforms
+		};*/
 		//canvas.drawImage(backgroundImg, 0, 0, 1280, backgroundImg.height, 0, 0, 1280, 720);
 		canvas.drawImage(backgroundImg, 0, 0, backgroundImg.width, backgroundImg.height);
 		//draw main character
 		var offsetsX = [ 190, 590, 1070, 1570, 2012 ];
 		var t = (new Date().getTime()/300)%offsetsX.length<<0;
-		//canvas.drawImage(characterImg, 75, 40, 280, 500, this.mainCharacter.position.x, this.mainCharacter.position.y, 120/4, 183/4);//draw main character
+		//canvas.drawImage(characterImg, 75, 40, 280, 500, this.mainCharacter.position.x, this.mainCharacter.position.y, this.mainCharacter.size.w, this.mainCharacter.size.h);//draw main character
 		if(this.mainCharacter.speed.x==0){
 			t = 0;
 		}
-		canvas.fillStyle = "#0F0";
-		canvas.fillRect(this.mainCharacter.position.x, this.mainCharacter.position.y, 120/4, 183/4);
-		canvas.drawImage(characterImg, offsetsX[t], 140, 280, 500, this.mainCharacter.position.x, this.mainCharacter.position.y, 120/4, 183/4);//draw main character
+		//canvas.fillStyle = "#0F0";
+		//canvas.fillRect(this.mainCharacter.position.x, this.mainCharacter.position.y, this.mainCharacter.size.w, this.mainCharacter.size.h);//Draw character
+		canvas.drawImage(characterImg, offsetsX[t], 140, 280, 500, this.mainCharacter.position.x, this.mainCharacter.position.y, this.mainCharacter.size.w, this.mainCharacter.size.h);//draw main character
+		
+		for(var i=0; i<this.ptsa.length; i++){
+			canvas.fillStyle = "#FF0";
+			canvas.beginPath();
+			canvas.arc(this.ptsa[i].x,this.ptsa[i].y,5,0,2*Math.PI);
+			canvas.closePath();
+			canvas.stroke();
+		}
+		
 		canvas.restore();
 	}
 }

@@ -159,6 +159,7 @@ var game = {
 			game.currentScene.render(game);//render: just draw everithing as it is(should not change anything in the scene)
 		}
 		if(game.keepMainLoopRunning)requestAnimationFrame(game.mainLoop);//draw the next frame when it's convenient
+		//if(game.keepMainLoopRunning)setTimeout(requestAnimationFrame, 500, game.mainLoop);//draw the next frame when it's convenient
 		
 	},
 	//
@@ -209,6 +210,14 @@ var game = {
 /*******************************************************
  ******************* COLLISION *************************
  *******************************************************/
+//check the euclidian distance bewteen two points
+function checkPointPointDistance(pt1, pt2){
+	return Math.sqrt((pt1.x-pt2.x)*(pt1.x-pt2.x)+(pt1.y-pt2.y)*(pt1.y-pt2.y));
+}
+function checkLinePointDistance(lin, pt){
+	var lina=lin.y1-lin.y0, linb=lin.x0-lin.x1, linc=lina*lin.x0+linb*lin.y0;
+	return Math.abs(lina*pt.x+linb*pt.y+linc)/Math.sqrt(lina*lina+linb*linb);
+}
 //cehcks whether a point is inside a box
 function checkBoxPointCollision(box, pt){
     return !(	box.x > pt.x

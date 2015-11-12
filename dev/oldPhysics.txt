@@ -1,0 +1,95 @@
+
+		for(var i=0; i<this.platforms.length; i++){
+			var mainCharBB = { x:this.mainCharacter.position.x, y:this.mainCharacter.position.y, w:30, h:45 };
+			var mainCharBP = Box2Polygon(mainCharBB);
+			var collisions = checkPolygonPolygonIntersections(Box2Polygon(this.platforms[i]), mainCharBP);
+			var collisionBottom=0, collisionTop=0, collisionLeft=0, collisionRight=0;
+			//console.log(JSON.stringify(collisions), JSON.stringify(mainCharBB));
+			var allCollisions = [];
+			
+			
+			for(var j=0; j<collisions.length; j++){
+				var pk = false;
+				for(var k=0; k<mainCharBP.length && pk==false; k++){
+					pk = pk || checkPointPointDistance(collisions[j], mainCharBP[k])<1e-3;
+				}
+				for(var k=0; k<this.platforms[i].length && pk==false; k++){
+					pk = pk || checkPointPointDistance(collisions[j], this.platforms[i][k])<1e-3;
+				}
+				if(pk)continue;
+				collisionBottom += Math.abs(collisions[j].y-(mainCharBB.y+mainCharBB.h))<1e-3?1:0;
+				collisionTop += Math.abs(collisions[j].y-(mainCharBB.y))<1e-3?1:0;
+				collisionLeft += Math.abs(collisions[j].x-(mainCharBB.x))<1e-3?1:0;
+				collisionRight += Math.abs(collisions[j].x-(mainCharBB.x+mainCharBB.w))<1e-3?1:0;
+				allCollisions.push(collisions[j]);
+			}
+			if(allCollisions.length>0)console.log(i, JSON.stringify(allCollisions));
+
+			if(this.mainCharacter.speed.x>0 && (collisionTop && collisionBottom)){//going right and right collision
+				console.log("c");
+				this.mainCharacter.position.x = this.platforms[i].x-mainCharBB.w-5;	
+				/*
+				if(this.mainCharacter.speed.y<0){//slide on the wall
+					console.log("Subiu no nuro");
+					//this.mainCharacter.speed.y -= this.gravity.y/2;
+				}*/
+				i--;
+				continue;
+			}else if(this.mainCharacter.speed.x<0 && (collisionTop && collisionBottom)){//going left and left collision
+				console.log("d");
+				this.mainCharacter.position.x = this.platforms[i].x+this.platforms[i].w+5;	
+				/*
+				if(this.mainCharacter.speed.y<0){//slide on the wall
+					console.log("Subiu no nuro");
+					//this.mainCharacter.speed.y -= this.gravity.y/2;
+				}*/
+				i--;
+				continue;
+			}
+			
+			if(this.mainCharacter.speed.y>0 && (collisionLeft || collisionRight)){//going down
+				console.log("a");
+				this.mainCharacter.speed.y = 0;
+				this.mainCharacter.position.y = this.platforms[i].y-mainCharBB.h;
+			}else if(this.mainCharacter.speed.y<0 && (collisionLeft || collisionRight)){//going up
+				console.log("b");
+				this.mainCharacter.speed.y = 0;		
+				this.mainCharacter.position.y = this.platforms[i].y+this.platforms[i].h+1;
+			}
+
+
+
+		this.ptsa = [];
+		for(var i=0; i<this.platforms.length; i++){//for each platform
+			//console.log("i=", i);
+			var platformiBP = Box2Polygon(this.platforms[i]);
+			for(var ja=0,jb=platformiBP.length-1; ja<platformiBP.length; jb=ja,ja++){//for each platform vertex
+				//console.log("ja=", ja, "jb=", jb);
+				var pja=platformiBP[ja], pjb=platformiBP[jb];
+				var lj = PointPoint2Line(pja, pjb);
+				var mainCharBB = { x:this.mainCharacter.position.x, y:this.mainCharacter.position.y, w:30, h:45 };
+				var mainCharBP = Box2Polygon(mainCharBB);
+				for(var ka=0,kb=mainCharBP.length-1; ka<mainCharBP.length; kb=ka,ka++){//for each character boundary
+					//console.log("ka=", ka, "kb=", kb);
+					mainCharBB = { x:this.mainCharacter.position.x, y:this.mainCharacter.position.y, w:30, h:45 };
+					mainCharBP = Box2Polygon(mainCharBB);
+					var pka=mainCharBP[ka], pkb=mainCharBP[kb];
+					var lk = PointPoint2Line(pka, pkb);
+					var collision = checkLineSegmentLineSegmentsIntersection(lj, lk);
+					if(collision!=null){
+						this.ptsa.push(collision);
+						var tma = { x:(pka.x+pkb.x)/2+this.mainCharacter.speed.x, y:(pka.y+pkb.y)/2+this.mainCharacter.speed.y };
+						var ptd = checkPointPointDistance(tma, pka)<checkPointPointDistance(tma, pkb)?pka:pkb;
+						var vecb = { x:ptd.x-collision.x, y:ptd.y-collision.y };
+						if(vecb.y>=0){
+							this.mainCharacter.speed.y = 0;
+						}
+						//if(vecb.x!=0)vecb.x+=vecb.x/Math.abs(vecb.x);
+						//if(vecb.y!=0)vecb.y+=vecb.y/Math.abs(vecb.y);
+						console.log(pka, pkb, tma, ptd, collision, vecb);
+						this.mainCharacter.position.x -= vecb.x;
+						this.mainCharacter.position.y -= vecb.y;
+					}
+				}
+			}
+		}
