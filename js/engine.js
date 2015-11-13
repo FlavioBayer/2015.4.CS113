@@ -220,18 +220,18 @@ function checkLinePointDistance(lin, pt){
 }
 //cehcks whether a point is inside a box
 function checkBoxPointCollision(box, pt){
-    return !(	box.x > pt.x
-        	|| 	box.x+box.w < pt.x
-        	|| 	box.y > pt.y
-        	|| 	box.y+box.h < pt.y);
+    return box.x <= pt.x
+        && box.x+box.w >= pt.x
+        && box.y <= pt.y
+        && box.y+box.h >= pt.y;
 }
 //cehcks whether thow box intersects themselves at some point
 function checkBoxBoxCollision(box0, box1){
 	//http://gamedev.stackexchange.com/questions/586/what-is-the-fastest-way-to-work-out-2d-bounding-box-intersection
-    return !(	box1.x > box0.x+box0.w
-        	|| 	box1.x+box1.w < box0.x
-        	|| 	box1.y > box0.y+box0.h
-        	|| 	box1.y+box1.h < box0.y);
+    return box1.x <= box0.x+box0.w
+        && box1.x+box1.w >= box0.x
+        && box1.y <= box0.y+box0.h
+        && box1.y+box1.h >= box0.y;
 }
 //cehcks whether a point is inside a polygon
 function checkPolygonPointCollision(pol, pt){
@@ -264,11 +264,17 @@ function checkLineSegmentLineSegmentsIntersection(lin0, lin1){
 	var point = checkLineLineIntersection(lin0, lin1);
 	if(point==null)return null;
 	var lin0bb = Line2Box(lin0), lin1bb = Line2Box(lin1);
+	//expand the bounds by 1e-6 to avoid precision errors
+	lin0bb.x -= 1e-6; lin1bb.x -= 1e-6;
+	lin0bb.y -= 1e-6; lin1bb.y -= 1e-6;
+	lin0bb.w += 2e-6; lin1bb.w += 2e-6;
+	lin0bb.h += 2e-6; lin1bb.h += 2e-6;
 	if(checkBoxPointCollision(lin0bb, point)==false || checkBoxPointCollision(lin1bb, point)==false)return null;
 	return point;
 }
 //checks wether a line intersects a polygon, return the collision points
-function checkPolygonLineIntersections(pol, lin){
+function checkPolygonLineSegmentIntersections(pol, lin){
+	//console.log("\t", JSON.stringify(pol), JSON.stringify(lin));
 	var intersections = [];
 	for(var i=0, j=pol.length-1; i<pol.length; j=i,i++){
 		var nlin = PointPoint2Line(pol[i], pol[j]);
@@ -284,15 +290,15 @@ function checkPolygonPolygonIntersections(pol0, pol1){
 	var intersections = [];
 	for(var i=0, j=pol0.length-1; i<pol0.length; j=i,i++){
 		var nlin = PointPoint2Line(pol0[i], pol0[j]);
-		var r = checkPolygonLineIntersections(pol1, nlin);
+		var r = checkPolygonLineSegmentIntersections(pol1, nlin);
 		intersections = intersections.concat(r);
 	}
 	return intersections;
 }
 //checks wether a line intersects a box, return the collision points
-function checkBoxLineIntersections(box, lin){
+function checkBoxLineSegmentIntersections(box, lin){
 	var pol = Box2Polygon(box);
-	return checkPolygonLineIntersections(pol, lin);
+	return checkPolygonLineSegmentIntersections(pol, lin);
 }
 
 

@@ -36,8 +36,9 @@ var menuScene = {
 	processInput: function(gameContext, keyboard, mouse){},//Nothing to do here!
 	update: function(gameContext, deletaTime){},//Nothing to do here!
 	render: function(gameContext){
-		gameContext.currentScene = gameScene;//go straight to the game
-		keyboard.resetKeysDownUp();//reset keys before start the game
+		var menubackground = gameContext.images.menubackground;
+		gameContext.canvasContext.drawImage(menubackground, 0, 0, 1280, 720);
+		gameContext.currentScene = gameScene;
 	}
 };
 
@@ -52,7 +53,7 @@ var gameScene = {
 		state: "",
 		jumpAllowed: true,
 	},
-	platforms: [
+	platforms: [//ok
 		{ x:0, y:230, w:200, h:330 },
 		{ x:200, y:200, w:200, h:330 },
 		{ x:470, y:200, w:200, h:330 },
@@ -65,26 +66,16 @@ var gameScene = {
 		{ x:2290, y:230, w:200, h:330 },
 		{ x:2580, y:230, w:200, h:330 },
 	],
-	ropes: [
-		{ x0:1430, y0:245, x1:1610, y1:355 }
-	],
-	ladders: [
-		{ x0:2060, y0:380, x1:2090, y1:305 }
-	],
-	pipes: [
-		{ x0:2290, y0:305, x1:2290, y1:220 }
+	ropes_ladders_pipes: [//ok
+		{ x0:1430, y0:245, x1:1610, y1:355 },//rope
+		{ x0:2060, y0:380, x1:2090, y1:305 },//ladder
+		{ x0:2290, y0:305, x1:2290, y1:220 }//pipe
 	],
 	poles: [
 		{ x:2530, y:190 }
 	],
-	billboards: [
+	billboards: [//ok
 		{ x:1770, y:330, w:160, h:80 }
-	],
-	objects: [
-		{
-			otype: "platform",
-			poly: []
-		}
 	],
 	processInput: function(gameContext, keyboard, mouse){
 		var jumpAcceleration = 5;
@@ -113,30 +104,55 @@ var gameScene = {
 		this.mainCharacter.speed.y += this.mainCharacter.acceleration.y + this.gravity.y;
 		if(this.mainCharacter.speed.y>5)this.mainCharacter.speed.y=5;//limit falling speed
 		//get new position: discrete integrate speed
-		var newPosition = { x:this.mainCharacter.position.x+this.mainCharacter.speed.x, y:this.mainCharacter.position.y+this.mainCharacter.speed.y };
+		var newPosition = { x:this.mainCharacter.position.x, y:this.mainCharacter.position.y };
 		var oldPosition = { x:this.mainCharacter.position.x, y:this.mainCharacter.position.y };
-		//Check for platform collision and fix newPosition
-		for(var i=0; i<this.platforms.length; i++){//check for horizontal collision
-			var platform = this.platforms[i];
-			if(newPosition.y+this.mainCharacter.size.h<platform.y || platform.y+platform.h<newPosition.y)continue;//ignore platform if the mainCharacter is not inside the Y
-			if(this.mainCharacter.speed.x>0 && oldPosition.x+this.mainCharacter.size.w<=platform.x && newPosition.x+this.mainCharacter.size.w>platform.x){//going right, check for collision on left side
-				newPosition.x = platform.x-this.mainCharacter.size.w;//limit the move
-				this.mainCharacter.speed.y -= this.gravity.y/2;//slide/climb the wall, reduce the gravity by half
-			}else if(this.mainCharacter.speed.x<0 && oldPosition.x>=platform.x+platform.w && newPosition.x<platform.x+platform.w){//going left, check for collision on right side
-				newPosition.x = platform.x+platform.w;//limit the move
-				this.mainCharacter.speed.y -= this.gravity.y/2;//slide/climb the wall, reduce the gravity by half
+		var overrideSpeed = false;
+		//check for ropes,ladders,pipes and update position
+		for(var i=0; i<this.ropes_ladders_pipes.length; i++){
+			var mainCharacterBoundingBox = { x:this.mainCharacter.position.x, y:this.mainCharacter.position.y, w:this.mainCharacter.size.w, h:this.mainCharacter.size.h };
+			var rlp = this.ropes_ladders_pipes[i];
+			if(checkBoxLineSegmentIntersections(mainCharacterBoundingBox, rlp).length>0){
+				overrideSpeed = true;
+				var vectl = { x:rlp.x1-rlp.x0, y:rlp.y1-rlp.y0 };
+				var modv = Math.sqrt(vectl.x*vectl.x+vectl.y*vectl.y);
+				var nvectl = { x:vectl.x/modv*this.mainCharacter.speed.x/2, y:vectl.y/modv*this.mainCharacter.speed.x/2 };
+				this.mainCharacter.speed.y = 0;
+				newPosition.x += nvectl.x;
+				newPosition.y += nvectl.y;
 			}
 		}
-		for(var i=0; i<this.platforms.length; i++){//check for vertical collision
+		if(overrideSpeed==false){
+			newPosition.x += this.mainCharacter.speed.x;
+			newPosition.y += this.mainCharacter.speed.y;
+		};
+		//Check for platform collision and fix newPosition
+		for(var i=0; i<this.platforms.length; i++){
 			var platform = this.platforms[i];
-			if(newPosition.x+this.mainCharacter.size.w<platform.x || platform.x+platform.w<newPosition.x)continue;//ignore platform if the mainCharacter is not inside the X
-			if(this.mainCharacter.speed.y>0 && oldPosition.y+this.mainCharacter.size.h<=platform.y && newPosition.y+this.mainCharacter.size.h>platform.y){//going down, check for collision on top side
-				newPosition.y = platform.y-this.mainCharacter.size.h;//limit the move
-				this.mainCharacter.speed.y = 0;
-				this.mainCharacter.jumpAllowed = true;//is tanding on something: jump allowed
-			}else if(this.mainCharacter.speed.y<0 && oldPosition.y>=platform.y+platform.h && newPosition.y<platform.y+platform.h){//going up, check for collision on bottom side
-				newPosition.y = platform.y+platform.h;//limit the move
-				this.mainCharacter.speed.y = 0;
+			if(newPosition.y+this.mainCharacter.size.h>=platform.y && platform.y+platform.h>=newPosition.y){
+				if(oldPosition.x<newPosition.x && oldPosition.x+this.mainCharacter.size.w<=platform.x && newPosition.x+this.mainCharacter.size.w>platform.x){//going right, check for collision on left side
+					newPosition.x = platform.x-this.mainCharacter.size.w;//limit the move
+					this.mainCharacter.speed.y -= this.gravity.y/2;//slide/climb the wall, reduce the gravity by half
+				}else if(oldPosition.x>newPosition.x && oldPosition.x>=platform.x+platform.w && newPosition.x<platform.x+platform.w){//going left, check for collision on right side
+					newPosition.x = platform.x+platform.w;//limit the move
+					this.mainCharacter.speed.y -= this.gravity.y/2;//slide/climb the wall, reduce the gravity by half
+				}
+			}
+			if(newPosition.x+this.mainCharacter.size.w>=platform.x && platform.x+platform.w>=newPosition.x){
+				if(oldPosition.y<newPosition.y && oldPosition.y+this.mainCharacter.size.h<=platform.y && newPosition.y+this.mainCharacter.size.h>platform.y){//going down, check for collision on top side
+					newPosition.y = platform.y-this.mainCharacter.size.h;//limit the move
+					this.mainCharacter.speed.y = 0;
+					this.mainCharacter.jumpAllowed = true;//is tanding on something: jump allowed
+				}else if(oldPosition.y>newPosition.y && oldPosition.y>=platform.y+platform.h && newPosition.y<platform.y+platform.h){//going up, check for collision on bottom side
+					newPosition.y = platform.y+platform.h;//limit the move
+					this.mainCharacter.speed.y = 0;
+				}
+			}
+		}
+		//check for billboards and update speed
+		for(var i=0; i<this.billboards.length; i++){
+			var mainCharacterBoundingBox = { x:newPosition.x, y:newPosition.y, w:this.mainCharacter.size.w, h:this.mainCharacter.size.h };
+			if(checkBoxBoxCollision(mainCharacterBoundingBox, this.billboards[i])){
+				this.mainCharacter.speed.y -= this.gravity.y/2;
 			}
 		}
 		//update mainCharacter.position
@@ -155,6 +171,15 @@ var gameScene = {
 		canvas.translate(200, 720/2);
 		canvas.scale(1.5, 1.5);
 		canvas.translate(-this.mainCharacter.position.x, -this.mainCharacter.position.y);
+		//Draw Ropes,Ladders,Pipes
+		canvas.strokeStyle = "#00F";
+		for(var i=0; i<this.ropes_ladders_pipes.length; i++){
+			canvas.beginPath();
+			canvas.moveTo(this.ropes_ladders_pipes[i].x0, this.ropes_ladders_pipes[i].y0);
+			canvas.lineTo(this.ropes_ladders_pipes[i].x1, this.ropes_ladders_pipes[i].y1);
+			canvas.closePath();
+			canvas.stroke();
+		};
 		//Draw Platforms
 		/*canvas.strokeStyle = "#F00";
 		for(var i=0; i<this.platforms.length; i++){
@@ -169,22 +194,12 @@ var gameScene = {
 		//draw main character
 		var offsetsX = [ 190, 590, 1070, 1570, 2012 ];
 		var t = (new Date().getTime()/300)%offsetsX.length<<0;
-		//canvas.drawImage(characterImg, 75, 40, 280, 500, this.mainCharacter.position.x, this.mainCharacter.position.y, this.mainCharacter.size.w, this.mainCharacter.size.h);//draw main character
 		if(this.mainCharacter.speed.x==0){
 			t = 0;
 		}
-		//canvas.fillStyle = "#0F0";
+		//canvas.fillStyle = "#FFF";
 		//canvas.fillRect(this.mainCharacter.position.x, this.mainCharacter.position.y, this.mainCharacter.size.w, this.mainCharacter.size.h);//Draw character
 		canvas.drawImage(characterImg, offsetsX[t], 140, 280, 500, this.mainCharacter.position.x, this.mainCharacter.position.y, this.mainCharacter.size.w, this.mainCharacter.size.h);//draw main character
-		
-		for(var i=0; i<this.ptsa.length; i++){
-			canvas.fillStyle = "#FF0";
-			canvas.beginPath();
-			canvas.arc(this.ptsa[i].x,this.ptsa[i].y,5,0,2*Math.PI);
-			canvas.closePath();
-			canvas.stroke();
-		}
-		
 		canvas.restore();
 	}
 }
@@ -210,6 +225,7 @@ document.addEventListener("DOMContentLoaded", function(){
 	game.images.load("move2", "img/Move2.png");
 	game.images.load("spritesheet", "img/SpriteSheet1.png");
 	game.images.load("background2", "img/BuildingsRooftops.png");
+	game.images.load("menubackground", "img/LOFMainMenu.png");
 	//set scene as loading image scene and start the loop
 	game.currentScene = loadingScene;
 	//game.currentScene = collisionTestScene;
