@@ -33,12 +33,18 @@ var loadingScene = {
 
 //Menu
 var menuScene = {
-	processInput: function(gameContext, keyboard, mouse){},//Nothing to do here!
-	update: function(gameContext, deletaTime){},//Nothing to do here!
+	buttonStart: { x:80, y:220, w:200, h:30 },
+	processInput: function(gameContext, keyboard, mouse){
+		if(mouse.getMouseDown() && checkBoxPointCollision(this.buttonStart, mouse.getMousePosition())){//mouse has been pressed down right now and the color is hover
+			gameContext.currentScene = gameScene;
+			gameScene.loadLevel(levelTutorial);
+		}
+	},
+	update: function(gameContext, deletaTime){
+	},
 	render: function(gameContext){
 		var menubackground = gameContext.images.menubackground;
-		gameContext.canvasContext.drawImage(menubackground, 0, 0, 1280, 720);
-		gameContext.currentScene = gameScene;
+		gameContext.canvasContext.drawImage(menubackground, 0, 0/*, 1280, 720*/);
 	}
 };
 
@@ -88,27 +94,15 @@ var gamePauseScene = {
 	}
 }
 
-//Game
-var gameScene = {
-	gravity: { x:0, y:0.3 },
+var levelTutorial = {
 	mainCharacter: {
 		position: { x:10, y:150 },
-		size: { w:30, h:45 },
-		speed: { x:0, y:0 },
-		acceleration: { x:0, y:0 },
-		state: "",
-		points: 0,
-		timeStart: 0,
-		lifes: 2.5,
-		jumpAllowed: true,
-		checkpoint: null,
 	},
 	mainCamera: {
 		position: { x:10, y:0 },
 		zoomRatio: 1.,
-		differential: { x:0, y:0 },
 	},
-	platforms: [//ok
+	platforms: [
 		{ x:0, y:230, w:200, h:330 },
 		{ x:200, y:200, w:200, h:330 },
 		{ x:470, y:200, w:200, h:330 },
@@ -121,7 +115,7 @@ var gameScene = {
 		{ x:2290, y:230, w:200, h:330 },
 		{ x:2580, y:230, w:200, h:330 },
 	],
-	ropes_ladders_pipes: [//ok
+	ropes_ladders_pipes: [
 		{ x0:1430, y0:245, x1:1610, y1:355 },//rope
 		{ x0:2060, y0:380, x1:2090, y1:305 },//ladder
 		{ x0:2290, y0:305, x1:2290, y1:220 }//pipe
@@ -129,10 +123,9 @@ var gameScene = {
 	poles: [
 		{ x:2530, y:190 }
 	],
-	billboards: [//ok
+	billboards: [
 		{ x:1770, y:330, w:160, h:80 }
 	],
-	coinWidth: 20,
 	coins: [
 		{ x:570, y:200 },
 		{ x:1170, y:190 },
@@ -142,7 +135,72 @@ var gameScene = {
 		{ x:2710, y:215 },
 		{ x:2715, y:220 }
 	],
+};
+
+//Game
+var gameScene = {
+	gravity: { x:0, y:0.3 },
+	mainCharacter: {
+		position: { x:NaN, y:NaN },
+		size: { w:30, h:45 },
+		speed: { x:NaN, y:NaN },
+		acceleration: { x:NaN, y:NaN },
+		points: NaN,
+		timeStart: NaN,
+		lifes: NaN,
+		jumpAllowed: false,
+	},
+	checkpoints: [],
+	createCheckpoint: function(){
+		this.checkpoints.unshift({
+			mainCharacter: JSON.stringify(this.mainCharacter),
+			mainCamera: JSON.stringify(this.mainCamera),
+			coins: JSON.stringify(this.coins),
+		});
+	},
+	restoreCheckpoint: function(i){
+		i = i || 0;
+		if(i>=this.checkpoints.length)return false;
+		this.mainCharacter = JSON.parse(this.checkpoints[i].mainCharacter);
+		this.mainCamera = JSON.parse(this.checkpoints[i].mainCamera);
+		this.coins = JSON.parse(this.checkpoints[i].coins);
+		return true;
+	},
+	mainCamera: {
+		position: { x:NaN, y:NaN },
+		zoomRatio: NaN,
+		differential: { x:NaN, y:NaN },
+	},
+	platforms: [],//ok
+	ropes_ladders_pipes: [],//ok
+	poles: [],//todo
+	billboards: [],//ok
+	coinWidth: 20,
+	coins: [],
 	other_objects: [],
+	loadLevel : function(newLevel){
+		//Copy Character
+		this.mainCharacter.position = JSON.parse(JSON.stringify(newLevel.mainCharacter.position));
+		this.mainCharacter.speed = { x:0, y:0 };
+		this.mainCharacter.acceleration = { x:0, y:0 };
+		this.mainCharacter.points = 0;
+		this.mainCharacter.timeStart = new Date().getTime();
+		this.mainCharacter.lifes = 3;
+		//Copy Camera
+		this.mainCamera.position = JSON.parse(JSON.stringify(newLevel.mainCamera.position));
+		this.mainCamera.zoomRatio = newLevel.mainCamera.zoomRatio;
+		this.mainCamera.differential = { x:0, y:0 };
+		//Copy Objects(platforms, ropes, ladders, pipes, poles, billboards, coins)
+		this.platforms = JSON.parse(JSON.stringify(newLevel.platforms));
+		this.ropes_ladders_pipes = JSON.parse(JSON.stringify(newLevel.ropes_ladders_pipes));
+		this.poles = JSON.parse(JSON.stringify(newLevel.poles));
+		this.billboards = JSON.parse(JSON.stringify(newLevel.billboards));
+		this.coins = JSON.parse(JSON.stringify(newLevel.coins));
+		this.other_objects = [];
+		//Reset and create an inicial checkpoint
+		this.checkpoints = [];
+		this.createCheckpoint();
+	},
 	processInput: function(gameContext, keyboard, mouse){
 		var jumpAcceleration = 5;
 		var runSpeed = 4;
@@ -161,11 +219,11 @@ var gameScene = {
 		if(keyboard.getKeyUp("d")){//run right, end
 			this.mainCharacter.speed.x -= runSpeed;
 		}
+		if(keyboard.getKeyDown(" ")){//use gun
+			alert("pew!");
+		}
 		if(keyboard.getKeyDown("p")){//pause
 			gameContext.currentScene = gamePauseScene;
-		}
-		if(keyboard.getKeyDown(" ")){//pause
-			alert("aaa");
 		}
 	},
 	update: function(gameContext, deltaTime){
@@ -191,6 +249,15 @@ var gameScene = {
 					this.mainCharacter.speed.y = 0;
 					newPosition.x += nvectl.x;
 					newPosition.y += nvectl.y;
+				}
+			}
+			for(var i=0; i<this.poles.length; i++){
+				var mainCharacterBoundingBox = { x:this.mainCharacter.position.x, y:this.mainCharacter.position.y, w:this.mainCharacter.size.w, h:this.mainCharacter.size.h/2 };
+				var p = this.poles[i];
+				if(checkBoxPointCollision(mainCharacterBoundingBox, p)){
+					this.mainCharacter.jumpAllowed = true;
+					overrideSpeed = true;
+					newPosition.x += this.mainCharacter.speed.x;
 				}
 			}
 			if(overrideSpeed==false){
@@ -252,7 +319,6 @@ var gameScene = {
 			};
 		}
 		if(this.mainCharacter.position.y>1000){
-			this.mainCharacter.lifes--;
 			game.currentScene = gamePlayerDieScene;
 		}
 		if(this.mainCharacter.lifes<=0){
@@ -260,52 +326,63 @@ var gameScene = {
 		}
 	},
 	render: function(gameContext){
-		var backgroundImg = gameContext.images.background1c;
+		var backgroundImg = gameContext.images.background2;
 		var characterImg = gameContext.images.spritesheet;
 		var canvas = gameContext.canvasContext;
-		var rooftops = gameContext.images.background2;
+		var rooftops = gameContext.images.background1c;
 		var coinImg = gameContext.images.coin;
 		//draw background
-		canvas.drawImage(rooftops, 0, 0);
+		canvas.drawImage(backgroundImg, 0, 0);
 		//move camera
 		canvas.save();
-		canvas.translate(this.mainCamera.position.x, this.mainCamera.position.y);
-		canvas.scale(this.mainCamera.zoomRatio, this.mainCamera.zoomRatio);
-		//Draw Ropes,Ladders,Pipes
-		canvas.strokeStyle = "#00F";
-		for(var i=0; i<this.ropes_ladders_pipes.length; i++){
-			canvas.beginPath();
-			canvas.moveTo(this.ropes_ladders_pipes[i].x0, this.ropes_ladders_pipes[i].y0);
-			canvas.lineTo(this.ropes_ladders_pipes[i].x1, this.ropes_ladders_pipes[i].y1);
-			canvas.closePath();
-			canvas.stroke();
-		};
-		//Draw Platforms
-		/*canvas.strokeStyle = "#F00";
-		for(var i=0; i<this.platforms.length; i++){
-			canvas.fillRect(this.platforms[i].x, this.platforms[i].y, this.platforms[i].w, this.platforms[i].h);
-			canvas.beginPath();
-			canvas.rect(this.platforms[i].x, this.platforms[i].y, this.platforms[i].w, this.platforms[i].h);
-			canvas.closePath();
-			canvas.stroke();
-		};*/
-		//canvas.drawImage(backgroundImg, 0, 0, 1280, backgroundImg.height, 0, 0, 1280, 720);
-		canvas.drawImage(backgroundImg, 0, 0, backgroundImg.width, backgroundImg.height);
-		//Draw coins
-		for(var i=0; i<this.coins.length; i++){
-			canvas.drawImage(coinImg, this.coins[i].x-this.coinWidth/2, this.coins[i].y-this.coinWidth/2, this.coinWidth, this.coinWidth);
-		};
-		//draw main character
-		var offsetsX = [ 190, 590, 1070, 1570, 2012 ];
-		var t = (new Date().getTime()/300)%offsetsX.length<<0;
-		if(this.mainCharacter.speed.x==0){
-			t = 0;
-		}
-		//canvas.fillStyle = "#FFF";
-		//canvas.fillRect(this.mainCharacter.position.x, this.mainCharacter.position.y, this.mainCharacter.size.w, this.mainCharacter.size.h);//Draw character
-		canvas.drawImage(characterImg, offsetsX[t], 140, 280, 500, this.mainCharacter.position.x, this.mainCharacter.position.y, this.mainCharacter.size.w, this.mainCharacter.size.h);//draw main character
+			canvas.translate(this.mainCamera.position.x, this.mainCamera.position.y);
+			canvas.scale(this.mainCamera.zoomRatio, this.mainCamera.zoomRatio);
+			//DEBUG: Draw Platforms
+			canvas.fillStyle = "#000";
+			canvas.strokeStyle = "#F00";
+			for(var i=0; i<this.platforms.length; i++){
+				canvas.beginPath();
+				canvas.rect(this.platforms[i].x, this.platforms[i].y, this.platforms[i].w, this.platforms[i].h);
+				canvas.closePath();
+				canvas.fill();
+				canvas.stroke();
+			}
+			//DEBUG: Draw Ropes,Ladders,Pipes
+			canvas.strokeStyle = "#00F";
+			for(var i=0; i<this.ropes_ladders_pipes.length; i++){
+				canvas.beginPath();
+				canvas.moveTo(this.ropes_ladders_pipes[i].x0, this.ropes_ladders_pipes[i].y0);
+				canvas.lineTo(this.ropes_ladders_pipes[i].x1, this.ropes_ladders_pipes[i].y1);
+				canvas.closePath();
+				canvas.stroke();
+			}
+			//DEBUG: Draw Poles
+			canvas.fillStyle = "#000";
+			for(var i=0; i<this.poles.length; i++){
+				canvas.beginPath();
+				canvas.arc(this.poles[i].x, this.poles[i].y, 5, 0, 2*Math.PI);
+				canvas.closePath();
+				canvas.stroke();
+			}
+			//DEBUG: Draw Character
+			canvas.fillStyle = "#FFF";
+			canvas.fillRect(this.mainCharacter.position.x, this.mainCharacter.position.y, this.mainCharacter.size.w, this.mainCharacter.size.h);
+			
+			//Draw Rooftops
+			canvas.drawImage(rooftops, 0, 0, rooftops.width, rooftops.height);
+			//Draw Coins
+			for(var i=0; i<this.coins.length; i++){
+				canvas.drawImage(coinImg, this.coins[i].x-this.coinWidth/2, this.coins[i].y-this.coinWidth/2, this.coinWidth, this.coinWidth);
+			}
+			//Draw main character
+			var offsetsX = [ 190, 590, 1070, 1570, 2012 ];
+			var t = (new Date().getTime()/300)%offsetsX.length<<0;
+			if(this.mainCharacter.speed.x==0){
+				t = 0;
+			}
+			canvas.drawImage(characterImg, offsetsX[t], 140, 280, 500, this.mainCharacter.position.x, this.mainCharacter.position.y, this.mainCharacter.size.w, this.mainCharacter.size.h);//draw main character
 		canvas.restore();
-		
+		//Draw HUD
 		for(var i=0; i<this.mainCharacter.lifes; i++){
 			var healthp = Math.min(this.mainCharacter.lifes-i, 1);
 			canvas.drawImage(game.images.hearth, 0, (1-healthp)*game.images.hearth.height, game.images.hearth.width, healthp*game.images.hearth.height, 10+i*35, 10+(1-healthp)*30, 30, healthp*30);
@@ -325,6 +402,9 @@ var gamePlayerDieScene = {
 			this.dt = 0;
 		}
 		if(this.dt>3000){
+			gameScene.restoreCheckpoint();
+			gameScene.mainCharacter.lifes = Math.ceil(gameScene.mainCharacter.lifes-1);
+			gameScene.createCheckpoint();
 			if(gameScene.mainCharacter.lifes>0){
 				game.currentScene = gameScene;
 			}else{
@@ -356,8 +436,9 @@ var gamePlayerDieScene = {
 			canvas.font = "bold 15px Arial";
 			canvas.fillStyle = "#00F";
 			var text = "";
-			if(gameScene.mainCharacter.lifes>0){
-				text = gameScene.mainCharacter.lifes + " lifes\nRestoring checkpoing(in the future)";
+			var newCharacterLife = Math.ceil(gameScene.mainCharacter.lifes-1);
+			if(newCharacterLife>0){
+				text = newCharacterLife + " lifes\nRestoring checkpoing";
 			}else{
 				text = "GAME OVER";
 			}
@@ -397,7 +478,7 @@ document.addEventListener("DOMContentLoaded", function(){
 	//load images(async: the image image may not be loaded)
 	game.images.load("background1", "img/L1.B.png");
 	game.images.load("background1b", "img/L1.m.png");
-	game.images.load("background1c", "img/L1.C.png");
+	game.images.load("background1c", "img/LevelRooftops.png");
 	game.images.load("characters", "img/characters.jpg");//http://www.hybridlava.com/20-high-class-avatar-icon-sets-for-free-download/3/
 	game.images.load("move2", "img/Move2.png");
 	game.images.load("spritesheet", "img/SpriteSheet1.png");
